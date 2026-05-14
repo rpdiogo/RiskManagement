@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine, Base
 from .models import risk, tprm  # ensure tables are registered
-from .routers import risks
+from .routers import risks, dashboard
 from .routers.tprm import vendors, questionnaires, contracts
 
 Base.metadata.create_all(bind=engine)
@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(dashboard.router)
 app.include_router(risks.router)
 app.include_router(vendors.router)
 app.include_router(questionnaires.router)

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Search } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
-import { mockRisks } from '../data/mock'
+import { risksApi } from '../api/risks'
 import type { Risk, RiskLevel, RiskCategory, RiskStatus } from '../types'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -28,20 +29,27 @@ const statusLabel: Record<RiskStatus, string> = {
   not_started:  'Não Iniciado',
 }
 
-const levelFromScore = (p: number, i: number): RiskLevel => {
-  const s = p * i
-  if (s >= 20) return 'critical'
-  if (s >= 12) return 'high'
-  if (s >= 6)  return 'medium'
-  return 'low'
-}
-
 export default function Risks() {
-  const [risks, setRisks] = useState<Risk[]>(mockRisks)
-  const [search, setSearch] = useState('')
+  const qc = useQueryClient()
+  const { data: risks = [], isLoading } = useQuery({ queryKey: ['risks'], queryFn: risksApi.list })
+
+  const createMutation = useMutation({
+    mutationFn: risksApi.create,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
+  })
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Partial<Risk> }) => risksApi.update(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: risksApi.remove,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
+  })
+
+  const [search, setSearch]           = useState('')
   const [filterLevel, setFilterLevel] = useState<RiskLevel | 'all'>('all')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Risk | null>(null)
+  const [modalOpen, setModalOpen]     = useState(false)
+  const [editing, setEditing]         = useState<Risk | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Risk | null>(null)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
@@ -63,32 +71,26 @@ export default function Risks() {
 
   function openEdit(r: Risk) {
     setEditing(r)
-    reset({ name: r.name, description: r.description, category: r.category, probability: r.probability, impact: r.impact, owner: r.owner, status: r.status })
+    reset({ name: r.name, description: r.description, category: r.category as any, probability: r.probability, impact: r.impact, owner: r.owner, status: r.status as any })
     setModalOpen(true)
   }
 
   function onSubmit(data: FormData) {
-    const prob = Number(data.probability)
-    const imp  = Number(data.impact)
-    const score = prob * imp
-    const level = levelFromScore(prob, imp)
     if (editing) {
-      setRisks(rs => rs.map(r => r.id === editing.id
-        ? ({ ...r, ...data, probability: prob, impact: imp, score, level, updatedAt: new Date().toISOString().slice(0, 10) } as Risk)
-        : r))
+      updateMutation.mutate({ id: editing.id, body: data })
     } else {
-      const newRisk: Risk = {
-        id: `r${Date.now()}`, ...data, probability: prob, impact: imp, score, level,
-        trend: 'stable', createdAt: new Date().toISOString().slice(0, 10), updatedAt: new Date().toISOString().slice(0, 10),
-      }
-      setRisks(rs => [newRisk, ...rs])
+      createMutation.mutate(data)
     }
     setModalOpen(false)
   }
 
   function confirmDelete() {
-    if (deleteTarget) setRisks(rs => rs.filter(r => r.id !== deleteTarget.id))
+    if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
     setDeleteTarget(null)
+  }
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-96"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>
   }
 
   return (
@@ -97,16 +99,11 @@ export default function Risks() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Pesquisar riscos..."
-              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-64"
-            />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar riscos..."
+              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white w-64" />
           </div>
-          <select
-            value={filterLevel} onChange={e => setFilterLevel(e.target.value as any)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-          >
+          <select value={filterLevel} onChange={e => setFilterLevel(e.target.value as any)}
+            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
             <option value="all">Todos os níveis</option>
             <option value="critical">Crítico</option>
             <option value="high">Alto</option>
@@ -114,10 +111,8 @@ export default function Risks() {
             <option value="low">Baixo</option>
           </select>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
+        <button onClick={openCreate}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           <Plus size={16} /> Novo Risco
         </button>
       </div>
@@ -146,7 +141,7 @@ export default function Risks() {
                 <td className="px-4 py-3"><Badge level={r.level} /></td>
                 <td className="px-4 py-3 text-center font-bold text-slate-800">{r.score}</td>
                 <td className="px-4 py-3">
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{statusLabel[r.status]}</span>
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{statusLabel[r.status] ?? r.status}</span>
                 </td>
                 <td className="px-4 py-3 text-slate-600">{r.owner}</td>
                 <td className="px-4 py-3">
@@ -168,7 +163,6 @@ export default function Risks() {
         </table>
       </div>
 
-      {/* Add / Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Risco' : 'Novo Risco'} size="md">
         <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div>
@@ -219,7 +213,6 @@ export default function Risks() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Eliminar Risco" size="sm">
         <p className="text-sm text-slate-600 mb-6">
           Tem a certeza que pretende eliminar <strong>{deleteTarget?.name}</strong>? Esta ação não pode ser desfeita.
