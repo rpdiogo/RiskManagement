@@ -1,0 +1,26 @@
+import TrendIndicator from '../ui/TrendIndicator'
+import type { ReactNode } from 'react'
+
+interface KpiCardProps {
+  title: string
+  value: number | string
+  trend: number
+  icon: ReactNode
+  iconBg: string
+  inverse?: boolean
+}
+
+export default function KpiCard({ title, value, trend, icon, iconBg, inverse }: KpiCardProps) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex items-start gap-4">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 font-medium truncate">{title}</p>
+        <p className="text-2xl font-bold text-slate-800 leading-tight">{value}</p>
+        <TrendIndicator value={trend} inverse={inverse} />
+      </div>
+    </div>
+  )
+}

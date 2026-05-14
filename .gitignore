@@ -1,0 +1,20 @@
+# Frontend
+risksafe/node_modules/
+risksafe/dist/
+
+# Backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/.venv/
+backend/venv/
+*.pyc
+*.pyo
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
