@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
-import { risksApi } from '../api/risks'
-import type { Risk, RiskLevel, RiskCategory, RiskStatus } from '../types'
+import { risksApi, actionPlansApi } from '../api/risks'
+import type { Risk, RiskLevel, RiskCategory, RiskStatus, ActionPlan } from '../types'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 
-const schema = z.object({
+// ─── Risk form schema ────────────────────────────────────────────────────────
+const riskSchema = z.object({
   name:        z.string().min(3, 'Nome obrigatório'),
   description: z.string().min(5, 'Descrição obrigatória'),
   category:    z.enum(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico', 'Organizacional', 'Legal e Regulamentar', 'Estratégico', 'ESG']),
@@ -18,42 +19,166 @@ const schema = z.object({
   owner:       z.string().min(2, 'Responsável obrigatório'),
   status:      z.enum(['open', 'in_treatment', 'mitigated', 'accepted', 'closed', 'not_started']),
 })
-type FormData = z.infer<typeof schema>
+type RiskFormData = z.infer<typeof riskSchema>
+
+// ─── Action plan form schema ─────────────────────────────────────────────────
+const apSchema = z.object({
+  title:    z.string().min(3, 'Título obrigatório'),
+  owner:    z.string().min(2, 'Responsável obrigatório'),
+  due_date: z.string().min(1, 'Prazo obrigatório'),
+  status:   z.enum(['not_started', 'in_progress', 'completed', 'delayed']),
+})
+type APFormData = z.infer<typeof apSchema>
 
 const statusLabel: Record<RiskStatus, string> = {
-  open:         'Aberto',
-  in_treatment: 'Em Tratamento',
-  mitigated:    'Mitigado',
-  accepted:     'Aceite',
-  closed:       'Fechado',
-  not_started:  'Não Iniciado',
+  open: 'Aberto', in_treatment: 'Em Tratamento', mitigated: 'Mitigado',
+  accepted: 'Aceite', closed: 'Fechado', not_started: 'Não Iniciado',
 }
 
+const apStatusCfg: Record<ActionPlan['status'], { label: string; icon: React.ElementType; cls: string }> = {
+  not_started: { label: 'Não Iniciado', icon: Circle,       cls: 'text-slate-500 bg-slate-100' },
+  in_progress: { label: 'Em Curso',     icon: Clock,        cls: 'text-blue-600 bg-blue-100' },
+  completed:   { label: 'Concluído',    icon: CheckCircle2, cls: 'text-green-600 bg-green-100' },
+  delayed:     { label: 'Atrasado',     icon: AlertCircle,  cls: 'text-red-600 bg-red-100' },
+}
+
+// ─── Inline action plans panel ───────────────────────────────────────────────
+function ActionPlansPanel({ riskId }: { riskId: string }) {
+  const qc = useQueryClient()
+  const { data: plans = [], isLoading } = useQuery({
+    queryKey: ['action-plans', riskId],
+    queryFn: () => actionPlansApi.list(riskId),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: actionPlansApi.remove,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['action-plans', riskId] })
+      qc.invalidateQueries({ queryKey: ['action-plans'] })
+    },
+  })
+  const createMutation = useMutation({
+    mutationFn: (data: APFormData) => actionPlansApi.create({ ...data, riskId } as any),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['action-plans', riskId] })
+      qc.invalidateQueries({ queryKey: ['action-plans'] })
+      apReset()
+      setAddOpen(false)
+    },
+  })
+
+  const [addOpen, setAddOpen] = useState(false)
+  const { register: apReg, handleSubmit: apSubmit, reset: apReset, formState: { errors: apErrors } } = useForm<APFormData>({
+    resolver: zodResolver(apSchema) as any,
+    defaultValues: { status: 'not_started' },
+  })
+
+  return (
+    <td colSpan={8} className="bg-slate-50 px-0 py-0">
+      <div className="pl-12 pr-4 py-3 border-t border-dashed border-slate-200">
+        {isLoading && <p className="text-xs text-slate-400 py-1">A carregar…</p>}
+
+        {!isLoading && plans.length === 0 && !addOpen && (
+          <p className="text-xs text-slate-400 italic py-1">Sem planos de ação associados.</p>
+        )}
+
+        {plans.length > 0 && (
+          <table className="w-full text-xs mb-2">
+            <thead>
+              <tr className="text-slate-400 uppercase tracking-wider font-semibold">
+                <th className="text-left py-1 pr-4 w-1/2">Ação</th>
+                <th className="text-left py-1 pr-4">Responsável</th>
+                <th className="text-left py-1 pr-4">Prazo</th>
+                <th className="text-left py-1 pr-4">Estado</th>
+                <th className="text-right py-1"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.map(p => {
+                const { label, icon: Icon, cls } = apStatusCfg[p.status] ?? apStatusCfg.not_started
+                return (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="py-1.5 pr-4 text-slate-700 font-medium">{p.title}</td>
+                    <td className="py-1.5 pr-4 text-slate-500">{p.owner}</td>
+                    <td className="py-1.5 pr-4 text-slate-400">{p.dueDate}</td>
+                    <td className="py-1.5 pr-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+                        <Icon size={10} />{label}
+                      </span>
+                    </td>
+                    <td className="py-1.5 text-right">
+                      <button onClick={() => deleteMutation.mutate(p.id)}
+                        className="p-1 text-slate-300 hover:text-red-500 rounded transition-colors">
+                        <Trash2 size={12} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {addOpen ? (
+          <form onSubmit={apSubmit(d => createMutation.mutate(d))} className="mt-2 grid grid-cols-4 gap-2 items-end">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-0.5">Título da ação</label>
+              <input {...apReg('title')} placeholder="ex. Implementar MFA"
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300" />
+              {apErrors.title && <p className="text-red-500 text-xs mt-0.5">{apErrors.title.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-0.5">Responsável</label>
+              <input {...apReg('owner')}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-0.5">Prazo</label>
+              <input type="date" {...apReg('due_date')}
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-0.5">Estado</label>
+              <select {...apReg('status')} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                {Object.entries(apStatusCfg).map(([k, { label }]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+            </div>
+            <div className="col-span-4 flex gap-2 justify-end">
+              <button type="button" onClick={() => { setAddOpen(false); apReset() }}
+                className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg hover:bg-slate-100">Cancelar</button>
+              <button type="submit"
+                className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Guardar</button>
+            </div>
+          </form>
+        ) : (
+          <button onClick={() => setAddOpen(true)}
+            className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+            <Plus size={13} /> Nova ação
+          </button>
+        )}
+      </div>
+    </td>
+  )
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 export default function Risks() {
   const qc = useQueryClient()
   const { data: risks = [], isLoading } = useQuery({ queryKey: ['risks'], queryFn: risksApi.list })
 
-  const createMutation = useMutation({
-    mutationFn: risksApi.create,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
-  })
-  const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Partial<Risk> }) => risksApi.update(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
-  })
-  const deleteMutation = useMutation({
-    mutationFn: risksApi.remove,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }),
-  })
+  const createMutation = useMutation({ mutationFn: risksApi.create,  onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
+  const updateMutation = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Risk> }) => risksApi.update(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
+  const deleteMutation = useMutation({ mutationFn: risksApi.remove,  onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
 
-  const [search, setSearch]           = useState('')
-  const [filterLevel, setFilterLevel] = useState<RiskLevel | 'all'>('all')
-  const [modalOpen, setModalOpen]     = useState(false)
-  const [editing, setEditing]         = useState<Risk | null>(null)
+  const [search, setSearch]             = useState('')
+  const [filterLevel, setFilterLevel]   = useState<RiskLevel | 'all'>('all')
+  const [modalOpen, setModalOpen]       = useState(false)
+  const [editing, setEditing]           = useState<Risk | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Risk | null>(null)
+  const [expandedId, setExpandedId]     = useState<string | null>(null)
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<RiskFormData>({
+    resolver: zodResolver(riskSchema) as any,
   })
 
   const filtered = risks.filter(r => {
@@ -75,12 +200,9 @@ export default function Risks() {
     setModalOpen(true)
   }
 
-  function onSubmit(data: FormData) {
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, body: data })
-    } else {
-      createMutation.mutate(data)
-    }
+  function onSubmit(data: RiskFormData) {
+    if (editing) updateMutation.mutate({ id: editing.id, body: data })
+    else createMutation.mutate(data)
     setModalOpen(false)
   }
 
@@ -89,9 +211,11 @@ export default function Risks() {
     setDeleteTarget(null)
   }
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-96"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>
-  }
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-96">
+      <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -121,6 +245,7 @@ export default function Risks() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+              <th className="w-8 px-2 py-3"></th>
               <th className="text-left px-4 py-3">Nome</th>
               <th className="text-left px-4 py-3">Categoria</th>
               <th className="text-left px-4 py-3">Nível</th>
@@ -130,39 +255,56 @@ export default function Risks() {
               <th className="text-right px-4 py-3">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
-            {filtered.map(r => (
-              <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 max-w-xs">
-                  <p className="font-medium text-slate-800 truncate">{r.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{r.description}</p>
-                </td>
-                <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.category}</td>
-                <td className="px-4 py-3"><Badge level={r.level} /></td>
-                <td className="px-4 py-3 text-center font-bold text-slate-800">{r.score}</td>
-                <td className="px-4 py-3">
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{statusLabel[r.status] ?? r.status}</span>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{r.owner}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => openEdit(r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={() => setDeleteTarget(r)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+          <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">Nenhum risco encontrado</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm">Nenhum risco encontrado</td></tr>
             )}
+            {filtered.map(r => {
+              const isExpanded = expandedId === r.id
+              return (
+                <>
+                  <tr key={r.id} className={`border-t border-slate-50 hover:bg-slate-50 transition-colors ${isExpanded ? 'bg-slate-50' : ''}`}>
+                    <td className="px-2 py-3 text-center">
+                      <button onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                        className="text-slate-400 hover:text-blue-600 transition-colors rounded">
+                        <ChevronRight size={16} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <p className="font-medium text-slate-800 truncate">{r.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{r.description}</p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.category}</td>
+                    <td className="px-4 py-3"><Badge level={r.level} /></td>
+                    <td className="px-4 py-3 text-center font-bold text-slate-800">{r.score}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{statusLabel[r.status] ?? r.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{r.owner}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => setDeleteTarget(r)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr key={`${r.id}-plans`}>
+                      <ActionPlansPanel riskId={r.id} />
+                    </tr>
+                  )}
+                </>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
+      {/* Risk create/edit modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Risco' : 'Novo Risco'} size="md">
         <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
           <div>
@@ -213,6 +355,7 @@ export default function Risks() {
         </form>
       </Modal>
 
+      {/* Delete modal */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Eliminar Risco" size="sm">
         <p className="text-sm text-slate-600 mb-6">
           Tem a certeza que pretende eliminar <strong>{deleteTarget?.name}</strong>? Esta ação não pode ser desfeita.
