@@ -7,6 +7,7 @@ import Assessments from './pages/tprm/Assessments'
 import Questionnaires from './pages/tprm/Questionnaires'
 import Contracts from './pages/tprm/Contracts'
 import ActionPlans from './pages/ActionPlans'
+import Assets from './pages/Assets'
 import Placeholder from './pages/Placeholder'
 
 export default function App() {
@@ -16,7 +17,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/"                   element={<Overview />} />
           <Route path="/riscos"             element={<Risks />} />
-          <Route path="/ativos"             element={<Placeholder name="Ativos" />} />
+          <Route path="/ativos"             element={<Assets />} />
           <Route path="/ameacas"            element={<Placeholder name="Ameaças" />} />
           <Route path="/vulnerabilidades"   element={<Placeholder name="Vulnerabilidades" />} />
           <Route path="/controles"          element={<Placeholder name="Controles" />} />

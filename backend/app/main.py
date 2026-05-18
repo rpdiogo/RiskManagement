@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine, Base
-from .models import risk, tprm, action_plan  # ensure tables are registered
-from .routers import risks, dashboard, action_plans
+from .models import risk, tprm, action_plan, snapshot, asset  # ensure tables are registered
+from .routers import risks, dashboard, action_plans, assets
 from .routers.tprm import vendors, questionnaires, contracts
 
 Base.metadata.create_all(bind=engine)
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(dashboard.router)
 app.include_router(risks.router)
 app.include_router(action_plans.router)
+app.include_router(assets.router)
 app.include_router(vendors.router)
 app.include_router(questionnaires.router)
 app.include_router(contracts.router)

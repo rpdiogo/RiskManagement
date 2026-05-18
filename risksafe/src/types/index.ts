@@ -81,6 +81,23 @@ export interface Contract {
   autoRenew: boolean
 }
 
+export type AssetType = 'software' | 'hardware' | 'network' | 'service'
+export type AssetStatus = 'active' | 'maintenance' | 'decommissioned'
+
+export interface Asset {
+  id: string
+  name: string
+  type: AssetType
+  owner: string
+  criticality: RiskLevel
+  status: AssetStatus
+  vendor?: string
+  contractId?: string
+  riskIds: string
+  description?: string
+  createdAt: string
+}
+
 export interface DashboardSummary {
   totalRisks: number
   criticalRisks: number
