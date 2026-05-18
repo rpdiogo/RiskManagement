@@ -12,7 +12,7 @@ function getLabel(score: number): { label: string; color: string } {
 export default function RiskGauge({ score }: RiskGaugeProps) {
   const { label, color } = getLabel(score)
   const clamp = Math.min(Math.max(score, 0), 100)
-  const angle = -90 + (clamp / 100) * 180
+  const angle = -180 + (clamp / 100) * 180
 
   const r = 60
   const cx = 80, cy = 80
