@@ -307,7 +307,7 @@ export default function Risks() {
           <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as any)}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
             <option value="all">Todas as categorias</option>
-            {(['Tecnológico','Pessoas','Processos','Terceiros','Físico','Organizacional','Legal e Regulamentar','Estratégico','ESG'] as RiskCategory[]).map(c =>
+            {[...new Set(risks.map(r => r.category))].sort().map(c =>
               <option key={c} value={c}>{c}</option>
             )}
           </select>
