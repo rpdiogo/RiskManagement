@@ -88,6 +88,7 @@ export interface DashboardSummary {
   mediumRisks: number
   lowRisks: number
   riskScore: number
+  trends?: { total: number; critical: number; high: number; medium: number; low: number }
   riskTrends: { month: string; critical: number; high: number; medium: number; low: number }[]
   risksByCategory: { category: string; count: number; percentage: number }[]
   actionPlanCompletion: number

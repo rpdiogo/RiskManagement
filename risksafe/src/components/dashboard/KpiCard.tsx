@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 interface KpiCardProps {
   title: string
   value: number | string
-  trend: number
+  trend?: number | null
   icon: ReactNode
   iconBg: string
   inverse?: boolean
@@ -19,7 +19,10 @@ export default function KpiCard({ title, value, trend, icon, iconBg, inverse }: 
       <div className="min-w-0">
         <p className="text-xs text-slate-500 font-medium truncate">{title}</p>
         <p className="text-2xl font-bold text-slate-800 leading-tight">{value}</p>
-        <TrendIndicator value={trend} inverse={inverse} />
+        {trend != null
+          ? <TrendIndicator value={trend} inverse={inverse} />
+          : <p className="text-xs text-slate-400 mt-0.5">sem dados anteriores</p>
+        }
       </div>
     </div>
   )
