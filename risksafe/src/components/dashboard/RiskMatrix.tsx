@@ -4,12 +4,19 @@ interface RiskMatrixProps {
   matrix: number[][]
 }
 
-function cellColor(prob: number, impact: number): string {
+function cellColor(prob: number, impact: number, hasRisks: boolean): string {
   const score = prob * impact
-  if (score > 16) return 'bg-red-500 text-white'       // Crítico: 17–25
-  if (score >= 10) return 'bg-orange-400 text-white'   // Alto:    10–16
-  if (score >= 5)  return 'bg-yellow-300 text-slate-700' // Médio: 5–9
-  return 'bg-green-200 text-slate-700'                 // Baixo:   1–4
+  if (hasRisks) {
+    if (score > 16) return 'bg-red-500 text-white'
+    if (score >= 10) return 'bg-orange-400 text-white'
+    if (score >= 5)  return 'bg-yellow-300 text-slate-700'
+    return 'bg-green-400 text-white'
+  }
+  // Empty cells — faint zone tint only
+  if (score > 16) return 'bg-red-100'
+  if (score >= 10) return 'bg-orange-100'
+  if (score >= 5)  return 'bg-yellow-50'
+  return 'bg-green-50'
 }
 
 const probLabels  = ['Muito Alta', 'Alta', 'Média', 'Baixa', 'Muito Baixa']
@@ -32,7 +39,7 @@ export default function RiskMatrix({ matrix }: RiskMatrixProps) {
                 {row.map((val, ci) => (
                   <div
                     key={ci}
-                    className={`flex-1 h-9 flex items-center justify-center text-sm font-semibold rounded ${cellColor(5 - ri, ci + 1)}`}
+                    className={`flex-1 h-9 flex items-center justify-center text-sm font-semibold rounded transition-colors ${cellColor(5 - ri, ci + 1, val > 0)}`}
                   >
                     {val > 0 ? val : ''}
                   </div>
