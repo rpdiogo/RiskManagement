@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle, Server, Monitor, Wifi, Cloud } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle, Server, Monitor, Wifi, Cloud, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
@@ -48,6 +48,24 @@ const apStatusCfg: Record<ActionPlan['status'], { label: string; icon: React.Ele
   in_progress: { label: 'Em Curso',     icon: Clock,        cls: 'text-blue-600 bg-blue-100' },
   completed:   { label: 'Concluído',    icon: CheckCircle2, cls: 'text-green-600 bg-green-100' },
   delayed:     { label: 'Atrasado',     icon: AlertCircle,  cls: 'text-red-600 bg-red-100' },
+}
+
+// ─── Sortable column header ──────────────────────────────────────────────────
+function SortTh({ label, col, sortKey, sortDir, onSort, className }: {
+  label: string; col: string; sortKey: string | null; sortDir: 'asc' | 'desc'
+  onSort: (col: any) => void; className?: string
+}) {
+  const active = sortKey === col
+  const Icon = active ? (sortDir === 'asc' ? ChevronUp : ChevronDown) : ChevronsUpDown
+  return (
+    <th className={className}>
+      <button onClick={() => onSort(col)}
+        className="inline-flex items-center gap-1 hover:text-blue-600 transition-colors group">
+        {label}
+        <Icon size={13} className={active ? 'text-blue-500' : 'text-slate-300 group-hover:text-blue-400'} />
+      </button>
+    </th>
+  )
 }
 
 // ─── Inline action plans + assets panel ─────────────────────────────────────
@@ -198,23 +216,47 @@ export default function Risks() {
   const updateMutation = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Risk> }) => risksApi.update(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
   const deleteMutation = useMutation({ mutationFn: risksApi.remove,  onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
 
-  const [search, setSearch]             = useState('')
-  const [filterLevel, setFilterLevel]   = useState<RiskLevel | 'all'>('all')
-  const [modalOpen, setModalOpen]       = useState(false)
-  const [editing, setEditing]           = useState<Risk | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Risk | null>(null)
-  const [expandedId, setExpandedId]     = useState<string | null>(null)
+  const [search, setSearch]               = useState('')
+  const [filterLevel, setFilterLevel]     = useState<RiskLevel | 'all'>('all')
+  const [filterCategory, setFilterCategory] = useState<RiskCategory | 'all'>('all')
+  const [sortKey, setSortKey]             = useState<'score' | 'name' | 'category' | 'level' | 'status' | null>('score')
+  const [sortDir, setSortDir]             = useState<'asc' | 'desc'>('desc')
+  const [modalOpen, setModalOpen]         = useState(false)
+  const [editing, setEditing]             = useState<Risk | null>(null)
+  const [deleteTarget, setDeleteTarget]   = useState<Risk | null>(null)
+  const [expandedId, setExpandedId]       = useState<string | null>(null)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RiskFormData>({
     resolver: zodResolver(riskSchema) as any,
   })
 
-  const filtered = risks.filter(r => {
-    const matchSearch = r.name.toLowerCase().includes(search.toLowerCase()) ||
-                        r.owner.toLowerCase().includes(search.toLowerCase())
-    const matchLevel  = filterLevel === 'all' || r.level === filterLevel
-    return matchSearch && matchLevel
-  })
+  const levelOrder: Record<RiskLevel, number> = { critical: 4, high: 3, medium: 2, low: 1 }
+  const statusOrder: Record<string, number> = { open: 5, in_treatment: 4, not_started: 3, accepted: 2, mitigated: 1, closed: 0 }
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  const filtered = useMemo(() => {
+    const base = risks.filter(r => {
+      const matchSearch   = r.name.toLowerCase().includes(search.toLowerCase()) ||
+                            r.owner.toLowerCase().includes(search.toLowerCase())
+      const matchLevel    = filterLevel    === 'all' || r.level    === filterLevel
+      const matchCategory = filterCategory === 'all' || r.category === filterCategory
+      return matchSearch && matchLevel && matchCategory
+    })
+    if (!sortKey) return base
+    return [...base].sort((a, b) => {
+      let cmp = 0
+      if (sortKey === 'score')    cmp = a.score - b.score
+      if (sortKey === 'name')     cmp = a.name.localeCompare(b.name)
+      if (sortKey === 'category') cmp = a.category.localeCompare(b.category)
+      if (sortKey === 'level')    cmp = (levelOrder[a.level] ?? 0) - (levelOrder[b.level] ?? 0)
+      if (sortKey === 'status')   cmp = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0)
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [risks, search, filterLevel, filterCategory, sortKey, sortDir])
 
   function openCreate() {
     setEditing(null)
@@ -262,6 +304,13 @@ export default function Risks() {
             <option value="medium">Médio</option>
             <option value="low">Baixo</option>
           </select>
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as any)}
+            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <option value="all">Todas as categorias</option>
+            {(['Tecnológico','Pessoas','Processos','Terceiros','Físico','Organizacional','Legal e Regulamentar','Estratégico','ESG'] as RiskCategory[]).map(c =>
+              <option key={c} value={c}>{c}</option>
+            )}
+          </select>
         </div>
         <button onClick={openCreate}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
@@ -274,11 +323,11 @@ export default function Risks() {
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               <th className="w-8 px-2 py-3"></th>
-              <th className="text-left px-4 py-3">Nome</th>
-              <th className="text-left px-4 py-3">Categoria</th>
-              <th className="text-left px-4 py-3">Nível</th>
-              <th className="text-center px-4 py-3">Score</th>
-              <th className="text-left px-4 py-3">Estado</th>
+              <SortTh label="Nome"       col="name"     sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-3" />
+              <SortTh label="Categoria"  col="category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-3" />
+              <SortTh label="Nível"      col="level"    sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-3" />
+              <SortTh label="Score"      col="score"    sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-center px-4 py-3" />
+              <SortTh label="Estado"     col="status"   sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="text-left px-4 py-3" />
               <th className="text-left px-4 py-3">Responsável</th>
               <th className="text-right px-4 py-3">Ações</th>
             </tr>
