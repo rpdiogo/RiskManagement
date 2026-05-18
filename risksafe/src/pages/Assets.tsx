@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Search, Server, Monitor, Wifi, Cloud } from 'luci
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
+import RiskMultiSelect from '../components/ui/RiskMultiSelect'
 import { assetsApi } from '../api/assets'
 import { risksApi } from '../api/risks'
 import type { Asset, AssetType, AssetStatus, RiskLevel } from '../types'
@@ -17,7 +18,6 @@ const schema = z.object({
   criticality: z.enum(['critical', 'high', 'medium', 'low']),
   status:      z.enum(['active', 'maintenance', 'decommissioned']),
   vendor:      z.string().optional(),
-  risk_ids:    z.string().optional(),
   description: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -44,11 +44,12 @@ export default function Assets() {
   const updateMutation = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Asset> }) => assetsApi.update(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }) })
   const deleteMutation = useMutation({ mutationFn: assetsApi.remove,  onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }) })
 
-  const [search, setSearch]             = useState('')
-  const [filterType, setFilterType]     = useState<AssetType | 'all'>('all')
-  const [modalOpen, setModalOpen]       = useState(false)
-  const [editing, setEditing]           = useState<Asset | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null)
+  const [search, setSearch]                 = useState('')
+  const [filterType, setFilterType]         = useState<AssetType | 'all'>('all')
+  const [modalOpen, setModalOpen]           = useState(false)
+  const [editing, setEditing]               = useState<Asset | null>(null)
+  const [deleteTarget, setDeleteTarget]     = useState<Asset | null>(null)
+  const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([])
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
@@ -65,19 +66,21 @@ export default function Assets() {
 
   function openCreate() {
     setEditing(null)
-    reset({ name: '', type: 'software', owner: '', criticality: 'medium', status: 'active', vendor: '', risk_ids: '', description: '' })
+    setSelectedRiskIds([])
+    reset({ name: '', type: 'software', owner: '', criticality: 'medium', status: 'active', vendor: '', description: '' })
     setModalOpen(true)
   }
 
   function openEdit(a: Asset) {
     setEditing(a)
+    setSelectedRiskIds(a.riskIds ? a.riskIds.split(',').filter(Boolean) : [])
     reset({ name: a.name, type: a.type, owner: a.owner, criticality: a.criticality,
-            status: a.status, vendor: a.vendor ?? '', risk_ids: a.riskIds ?? '', description: a.description ?? '' })
+            status: a.status, vendor: a.vendor ?? '', description: a.description ?? '' })
     setModalOpen(true)
   }
 
   function onSubmit(data: FormData) {
-    const body = { ...data, risk_ids: data.risk_ids ?? '' }
+    const body = { ...data, risk_ids: selectedRiskIds.join(',') }
     if (editing) updateMutation.mutate({ id: editing.id, body: body as any })
     else createMutation.mutate(body as any)
     setModalOpen(false)
@@ -235,9 +238,8 @@ export default function Assets() {
               {errors.owner && <p className="text-xs text-red-500 mt-1">{errors.owner.message}</p>}
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-slate-700 mb-1">Riscos associados <span className="text-slate-400 font-normal">(IDs separados por vírgula, ex: R003,R011)</span></label>
-              <input {...register('risk_ids')} placeholder="R003,R011"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono" />
+              <label className="block text-xs font-medium text-slate-700 mb-1">Riscos associados</label>
+              <RiskMultiSelect risks={risks} selected={selectedRiskIds} onChange={setSelectedRiskIds} />
             </div>
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-700 mb-1">Descrição</label>

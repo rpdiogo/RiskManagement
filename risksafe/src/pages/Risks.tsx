@@ -1,13 +1,21 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle, Server, Monitor, Wifi, Cloud } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { risksApi, actionPlansApi } from '../api/risks'
-import type { Risk, RiskLevel, RiskCategory, RiskStatus, ActionPlan } from '../types'
+import { assetsApi } from '../api/assets'
+import type { Risk, RiskLevel, RiskCategory, RiskStatus, ActionPlan, AssetType } from '../types'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+
+const typeConfig: Record<AssetType, { label: string; icon: React.ElementType; color: string }> = {
+  software: { label: 'Software',      icon: Monitor, color: 'text-blue-600 bg-blue-100' },
+  hardware: { label: 'Hardware',      icon: Server,  color: 'text-slate-600 bg-slate-100' },
+  network:  { label: 'Rede',          icon: Wifi,    color: 'text-purple-600 bg-purple-100' },
+  service:  { label: 'Serviço Cloud', icon: Cloud,   color: 'text-teal-600 bg-teal-100' },
+}
 
 // ─── Risk form schema ────────────────────────────────────────────────────────
 const riskSchema = z.object({
@@ -42,13 +50,15 @@ const apStatusCfg: Record<ActionPlan['status'], { label: string; icon: React.Ele
   delayed:     { label: 'Atrasado',     icon: AlertCircle,  cls: 'text-red-600 bg-red-100' },
 }
 
-// ─── Inline action plans panel ───────────────────────────────────────────────
+// ─── Inline action plans + assets panel ─────────────────────────────────────
 function ActionPlansPanel({ riskId }: { riskId: string }) {
   const qc = useQueryClient()
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['action-plans', riskId],
     queryFn: () => actionPlansApi.list(riskId),
   })
+  const { data: allAssets = [] } = useQuery({ queryKey: ['assets'], queryFn: assetsApi.list })
+  const linkedAssets = allAssets.filter(a => a.riskIds?.split(',').filter(Boolean).includes(riskId))
 
   const deleteMutation = useMutation({
     mutationFn: actionPlansApi.remove,
@@ -155,6 +165,24 @@ function ActionPlansPanel({ riskId }: { riskId: string }) {
             className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
             <Plus size={13} /> Nova ação
           </button>
+        )}
+
+        {/* ── Ativos associados ── */}
+        {linkedAssets.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-dashed border-slate-200">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ativos expostos</p>
+            <div className="flex flex-wrap gap-2">
+              {linkedAssets.map(a => {
+                const cfg = typeConfig[a.type] ?? typeConfig.software
+                const Icon = cfg.icon
+                return (
+                  <span key={a.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.color}`}>
+                    <Icon size={11} />{a.name}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
         )}
       </div>
     </td>
