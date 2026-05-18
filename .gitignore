@@ -1,6 +1,9 @@
 # Unrelated projects
 aiSO/
 
+# Root
+node_modules/
+
 # Frontend
 risksafe/node_modules/
 risksafe/dist/

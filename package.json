@@ -1,0 +1,13 @@
+{
+  "name": "risksafe",
+  "version": "1.0.0",
+  "description": "RiskSafe — Risk Management Platform",
+  "scripts": {
+    "dev": "concurrently --names \"API,UI\" --prefix-colors \"cyan,magenta\" \"npm run dev:api\" \"npm run dev:ui\"",
+    "dev:api": "cd backend && .venv\\Scripts\\uvicorn app.main:app --reload",
+    "dev:ui": "cd risksafe && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
