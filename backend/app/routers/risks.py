@@ -65,7 +65,7 @@ def delete_risk(risk_id: str, db: Session = Depends(get_db)):
 
 
 def _level(score: int) -> str:
-    if score >= 20: return "critical"
-    if score >= 12: return "high"
-    if score >= 6:  return "medium"
+    if score > 16: return "critical"
+    if score >= 10: return "high"
+    if score >= 5:  return "medium"
     return "low"

@@ -6,6 +6,7 @@ import Vendors from './pages/tprm/Vendors'
 import Assessments from './pages/tprm/Assessments'
 import Questionnaires from './pages/tprm/Questionnaires'
 import Contracts from './pages/tprm/Contracts'
+import ActionPlans from './pages/ActionPlans'
 import Placeholder from './pages/Placeholder'
 
 export default function App() {
@@ -20,7 +21,7 @@ export default function App() {
           <Route path="/vulnerabilidades"   element={<Placeholder name="Vulnerabilidades" />} />
           <Route path="/controles"          element={<Placeholder name="Controles" />} />
           <Route path="/incidentes"         element={<Placeholder name="Incidentes" />} />
-          <Route path="/planos"             element={<Placeholder name="Planos de Ação" />} />
+          <Route path="/planos"             element={<ActionPlans />} />
           <Route path="/relatorios"         element={<Placeholder name="Relatórios" />} />
           <Route path="/dashboard-exec"     element={<Placeholder name="Dashboard Executivo" />} />
           <Route path="/tprm/fornecedores"  element={<Vendors />} />

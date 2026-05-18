@@ -1,5 +1,5 @@
 export type RiskLevel = 'critical' | 'high' | 'medium' | 'low'
-export type RiskCategory = 'Tecnológico' | 'Pessoas' | 'Processos' | 'Terceiros' | 'Físico'
+export type RiskCategory = 'Tecnológico' | 'Pessoas' | 'Processos' | 'Terceiros' | 'Físico' | 'Organizacional' | 'Legal e Regulamentar' | 'Estratégico' | 'ESG'
 export type RiskStatus = 'open' | 'in_treatment' | 'mitigated' | 'accepted' | 'closed' | 'not_started'
 export type TrendDirection = 'up' | 'down' | 'stable'
 

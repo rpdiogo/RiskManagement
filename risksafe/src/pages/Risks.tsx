@@ -12,7 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 const schema = z.object({
   name:        z.string().min(3, 'Nome obrigatório'),
   description: z.string().min(5, 'Descrição obrigatória'),
-  category:    z.enum(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico']),
+  category:    z.enum(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico', 'Organizacional', 'Legal e Regulamentar', 'Estratégico', 'ESG']),
   probability: z.coerce.number().min(1).max(5),
   impact:      z.coerce.number().min(1).max(5),
   owner:       z.string().min(2, 'Responsável obrigatório'),
@@ -179,7 +179,7 @@ export default function Risks() {
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Categoria</label>
               <select {...register('category')} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
-                {(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico'] as RiskCategory[]).map(c => <option key={c}>{c}</option>)}
+                {(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico', 'Organizacional', 'Legal e Regulamentar', 'Estratégico', 'ESG'] as RiskCategory[]).map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
