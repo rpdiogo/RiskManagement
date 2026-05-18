@@ -6,10 +6,10 @@ interface RiskMatrixProps {
 
 function cellColor(prob: number, impact: number): string {
   const score = prob * impact
-  if (score >= 16) return 'bg-red-500 text-white'
-  if (score >= 9)  return 'bg-orange-400 text-white'
-  if (score >= 4)  return 'bg-yellow-300 text-slate-700'
-  return 'bg-green-200 text-slate-700'
+  if (score > 16) return 'bg-red-500 text-white'       // Crítico: 17–25
+  if (score >= 10) return 'bg-orange-400 text-white'   // Alto:    10–16
+  if (score >= 5)  return 'bg-yellow-300 text-slate-700' // Médio: 5–9
+  return 'bg-green-200 text-slate-700'                 // Baixo:   1–4
 }
 
 const probLabels  = ['Muito Alta', 'Alta', 'Média', 'Baixa', 'Muito Baixa']
