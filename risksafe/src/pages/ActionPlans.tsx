@@ -92,17 +92,24 @@ export default function ActionPlans() {
       {/* Summary Cards */}
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: 'Total',        value: total,       color: 'bg-slate-50 border-slate-200' },
-          { label: 'Concluídos',   value: completed,   color: 'bg-green-50 border-green-200' },
-          { label: 'Em Curso',     value: inProgress,  color: 'bg-blue-50 border-blue-200' },
-          { label: 'Não Iniciados',value: notStarted,  color: 'bg-slate-50 border-slate-200' },
-          { label: 'Atrasados',    value: delayed,     color: 'bg-red-50 border-red-200' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className={`rounded-xl border p-4 ${color}`}>
-            <p className="text-xs text-slate-500 font-medium">{label}</p>
-            <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
-          </div>
-        ))}
+          { label: 'Total',         value: total,      status: 'all',         base: 'bg-slate-50 border-slate-200',   active: 'bg-slate-200 border-slate-400 ring-2 ring-slate-400' },
+          { label: 'Concluídos',    value: completed,  status: 'completed',   base: 'bg-green-50 border-green-200',   active: 'bg-green-100 border-green-500 ring-2 ring-green-400' },
+          { label: 'Em Curso',      value: inProgress, status: 'in_progress', base: 'bg-blue-50 border-blue-200',     active: 'bg-blue-100 border-blue-500 ring-2 ring-blue-400' },
+          { label: 'Não Iniciados', value: notStarted, status: 'not_started', base: 'bg-slate-50 border-slate-200',   active: 'bg-slate-200 border-slate-400 ring-2 ring-slate-400' },
+          { label: 'Atrasados',     value: delayed,    status: 'delayed',     base: 'bg-red-50 border-red-200',       active: 'bg-red-100 border-red-500 ring-2 ring-red-400' },
+        ].map(({ label, value, status, base, active }) => {
+          const isActive = filterStatus === status
+          return (
+            <button
+              key={label}
+              onClick={() => setFilterStatus(isActive && status !== 'all' ? 'all' : status as any)}
+              className={`rounded-xl border p-4 text-left w-full transition-all cursor-pointer hover:shadow-md ${isActive ? active : base + ' hover:brightness-95'}`}
+            >
+              <p className="text-xs text-slate-500 font-medium">{label}</p>
+              <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
+            </button>
+          )
+        })}
       </div>
 
       {/* Progress bar */}
@@ -123,6 +130,7 @@ export default function ActionPlans() {
           <option value="all">Todos os estados</option>
           {Object.entries(statusConfig).map(([k, { label }]) => <option key={k} value={k}>{label}</option>)}
         </select>
+
         <button onClick={openCreate}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           <Plus size={16} /> Nova Ação

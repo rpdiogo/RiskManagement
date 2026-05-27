@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Plus, Pencil, Trash2, Search, ChevronRight, CheckCircle2, Clock, AlertCircle, Circle, Server, Monitor, Wifi, Cloud, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { risksApi, actionPlansApi } from '../api/risks'
 import { assetsApi } from '../api/assets'
-import type { Risk, RiskLevel, RiskCategory, RiskStatus, ActionPlan, AssetType } from '../types'
+import { controlsApi } from '../api/controls'
+import type { Risk, RiskLevel, RiskCategory, RiskStatus, ActionPlan, AssetType, ControlStatus } from '../types'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -18,14 +20,21 @@ const typeConfig: Record<AssetType, { label: string; icon: React.ElementType; co
 }
 
 // ─── Risk form schema ────────────────────────────────────────────────────────
+const optionalInt1to5 = z.preprocess(
+  v => (v === '' || v === null || v === undefined) ? undefined : Number(v),
+  z.number().min(1).max(5).optional()
+)
+
 const riskSchema = z.object({
-  name:        z.string().min(3, 'Nome obrigatório'),
-  description: z.string().min(5, 'Descrição obrigatória'),
-  category:    z.enum(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico', 'Organizacional', 'Legal e Regulamentar', 'Estratégico', 'ESG']),
-  probability: z.coerce.number().min(1).max(5),
-  impact:      z.coerce.number().min(1).max(5),
-  owner:       z.string().min(2, 'Responsável obrigatório'),
-  status:      z.enum(['open', 'in_treatment', 'mitigated', 'accepted', 'closed', 'not_started']),
+  name:                 z.string().min(3, 'Nome obrigatório'),
+  description:          z.string().min(5, 'Descrição obrigatória'),
+  category:             z.enum(['Tecnológico', 'Pessoas', 'Processos', 'Terceiros', 'Físico', 'Organizacional', 'Legal e Regulamentar', 'Estratégico', 'ESG']),
+  probability:          z.coerce.number().min(1).max(5),
+  impact:               z.coerce.number().min(1).max(5),
+  owner:                z.string().min(2, 'Responsável obrigatório'),
+  status:               z.enum(['open', 'in_treatment', 'mitigated', 'accepted', 'closed', 'not_started']),
+  residual_probability: optionalInt1to5,
+  residual_impact:      optionalInt1to5,
 })
 type RiskFormData = z.infer<typeof riskSchema>
 
@@ -68,6 +77,72 @@ function SortTh({ label, col, sortKey, sortDir, onSort, className }: {
   )
 }
 
+// ─── Control pill with tooltip + click navigation ────────────────────────────
+const statusCls: Record<ControlStatus, string> = {
+  implemented:     'text-green-700 bg-green-100 hover:bg-green-200',
+  partial:         'text-yellow-700 bg-yellow-100 hover:bg-yellow-200',
+  planned:         'text-blue-700 bg-blue-100 hover:bg-blue-200',
+  not_implemented: 'text-red-700 bg-red-100 hover:bg-red-200',
+  not_applicable:  'text-slate-500 bg-slate-100 hover:bg-slate-200',
+}
+const controlStatusLabel: Record<ControlStatus, string> = {
+  implemented: 'Implementado', partial: 'Parcial', planned: 'Planeado',
+  not_implemented: 'Não Implementado', not_applicable: 'N/A',
+}
+const effectivenessLabel: Record<string, string> = {
+  effective: 'Eficaz', needs_improvement: 'Precisa Melhoria',
+  ineffective: 'Ineficaz', untested: 'Não Testado',
+}
+
+function ControlPill({ control: c }: { control: Control }) {
+  const navigate = useNavigate()
+  const [showTip, setShowTip] = useState(false)
+  const tipRef = useRef<HTMLDivElement>(null)
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => navigate(`/controles?control=${c.id}`)}
+        onMouseEnter={() => setShowTip(true)}
+        onMouseLeave={() => setShowTip(false)}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${statusCls[c.status] ?? 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+      >
+        <span className="font-mono">{c.code}</span>
+        <span className="font-normal max-w-[180px] truncate">{c.name}</span>
+      </button>
+
+      {showTip && (
+        <div
+          ref={tipRef}
+          className="absolute bottom-full left-0 mb-2 z-50 w-72 bg-slate-800 text-white rounded-xl shadow-xl p-3 text-xs pointer-events-none"
+        >
+          <p className="font-semibold text-sm mb-1">{c.name}</p>
+          <p className="font-mono text-slate-400 mb-2">{c.code}</p>
+          {c.description && (
+            <p className="text-slate-300 leading-relaxed mb-2">{c.description}</p>
+          )}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-600">
+            <span className="bg-slate-700 px-2 py-0.5 rounded-full">
+              Estado: <strong>{controlStatusLabel[c.status] ?? c.status}</strong>
+            </span>
+            <span className="bg-slate-700 px-2 py-0.5 rounded-full">
+              Eficácia: <strong>{effectivenessLabel[c.effectiveness] ?? c.effectiveness}</strong>
+            </span>
+            {c.owner && (
+              <span className="bg-slate-700 px-2 py-0.5 rounded-full">
+                {c.owner}
+              </span>
+            )}
+          </div>
+          <p className="text-slate-500 mt-2">Clique para abrir o controlo →</p>
+          {/* Arrow */}
+          <div className="absolute top-full left-4 border-4 border-transparent border-t-slate-800" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Inline action plans + assets panel ─────────────────────────────────────
 function ActionPlansPanel({ riskId }: { riskId: string }) {
   const qc = useQueryClient()
@@ -76,7 +151,9 @@ function ActionPlansPanel({ riskId }: { riskId: string }) {
     queryFn: () => actionPlansApi.list(riskId),
   })
   const { data: allAssets = [] } = useQuery({ queryKey: ['assets'], queryFn: assetsApi.list })
+  const { data: allControls = [] } = useQuery({ queryKey: ['controls'], queryFn: controlsApi.list })
   const linkedAssets = allAssets.filter(a => a.riskIds?.split(',').filter(Boolean).includes(riskId))
+  const linkedControls = allControls.filter(c => (c.riskIds || '').split(',').map(s => s.trim()).filter(Boolean).includes(riskId))
 
   const deleteMutation = useMutation({
     mutationFn: actionPlansApi.remove,
@@ -185,6 +262,18 @@ function ActionPlansPanel({ riskId }: { riskId: string }) {
           </button>
         )}
 
+        {/* ── Controlos relacionados ── */}
+        {linkedControls.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-dashed border-slate-200">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Controlos relacionados</p>
+            <div className="flex flex-wrap gap-2">
+              {linkedControls.map(c => (
+                <ControlPill key={c.id} control={c} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Ativos associados ── */}
         {linkedAssets.length > 0 && (
           <div className="mt-4 pt-3 border-t border-dashed border-slate-200">
@@ -211,6 +300,8 @@ function ActionPlansPanel({ riskId }: { riskId: string }) {
 export default function Risks() {
   const qc = useQueryClient()
   const { data: risks = [], isLoading } = useQuery({ queryKey: ['risks'], queryFn: risksApi.list })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const highlightRef = useRef<HTMLTableRowElement | null>(null)
 
   const createMutation = useMutation({ mutationFn: risksApi.create,  onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
   const updateMutation = useMutation({ mutationFn: ({ id, body }: { id: string; body: Partial<Risk> }) => risksApi.update(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['risks'] }) })
@@ -225,6 +316,28 @@ export default function Risks() {
   const [editing, setEditing]             = useState<Risk | null>(null)
   const [deleteTarget, setDeleteTarget]   = useState<Risk | null>(null)
   const [expandedId, setExpandedId]       = useState<string | null>(null)
+
+  // Deep-link: ?level=critical → pre-filter by level
+  useEffect(() => {
+    const level = searchParams.get('level') as RiskLevel | null
+    if (level && ['critical', 'high', 'medium', 'low'].includes(level)) {
+      setFilterLevel(level)
+      setSearchParams({}, { replace: true })
+    }
+  }, [])
+
+  // Deep-link: ?risk=R027 → expand that row and scroll to it
+  useEffect(() => {
+    const targetId = searchParams.get('risk')
+    if (!targetId || risks.length === 0) return
+    setExpandedId(targetId)
+    // Clear param so back-navigation works cleanly
+    setSearchParams({}, { replace: true })
+    // Scroll after render
+    setTimeout(() => {
+      highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 120)
+  }, [searchParams, risks])
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RiskFormData>({
     resolver: zodResolver(riskSchema) as any,
@@ -260,13 +373,18 @@ export default function Risks() {
 
   function openCreate() {
     setEditing(null)
-    reset({ name: '', description: '', category: 'Tecnológico', probability: 3, impact: 3, owner: '', status: 'open' } as any)
+    reset({ name: '', description: '', category: 'Tecnológico', probability: 3, impact: 3, owner: '', status: 'open', residual_probability: undefined, residual_impact: undefined } as any)
     setModalOpen(true)
   }
 
   function openEdit(r: Risk) {
     setEditing(r)
-    reset({ name: r.name, description: r.description, category: r.category as any, probability: r.probability, impact: r.impact, owner: r.owner, status: r.status as any })
+    reset({
+      name: r.name, description: r.description, category: r.category as any,
+      probability: r.probability, impact: r.impact, owner: r.owner, status: r.status as any,
+      residual_probability: r.residualProbability ?? undefined,
+      residual_impact:      r.residualImpact      ?? undefined,
+    })
     setModalOpen(true)
   }
 
@@ -338,9 +456,18 @@ export default function Risks() {
             )}
             {filtered.map(r => {
               const isExpanded = expandedId === r.id
+              const isHighlighted = searchParams.get('risk') === r.id || (isExpanded && highlightRef.current?.dataset.id === r.id)
               return (
                 <>
-                  <tr key={r.id} className={`border-t border-slate-50 hover:bg-slate-50 transition-colors ${isExpanded ? 'bg-slate-50' : ''}`}>
+                  <tr
+                    key={r.id}
+                    data-id={r.id}
+                    ref={isExpanded && expandedId === r.id ? (el) => { if (el) highlightRef.current = el } : undefined}
+                    className={`border-t border-slate-50 hover:bg-slate-50 transition-colors
+                      ${isExpanded ? 'bg-slate-50' : ''}
+                      ${isExpanded && highlightRef.current?.dataset.id === r.id ? 'ring-2 ring-inset ring-blue-300' : ''}
+                    `}
+                  >
                     <td className="px-2 py-3 text-center">
                       <button onClick={() => setExpandedId(isExpanded ? null : r.id)}
                         className="text-slate-400 hover:text-blue-600 transition-colors rounded">
@@ -353,7 +480,17 @@ export default function Risks() {
                     </td>
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.category}</td>
                     <td className="px-4 py-3"><Badge level={r.level} /></td>
-                    <td className="px-4 py-3 text-center font-bold text-slate-800">{r.score}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="font-bold text-slate-800">{r.score}</span>
+                      {r.residualScore != null && (
+                        <span className="ml-1 text-xs">
+                          <span className="text-slate-300">→</span>
+                          <span className={`ml-1 font-semibold ${r.residualScore <= 8 ? 'text-green-600' : r.residualScore <= 12 ? 'text-yellow-600' : 'text-orange-500'}`}>
+                            {r.residualScore}
+                          </span>
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{statusLabel[r.status] ?? r.status}</span>
                     </td>
@@ -423,6 +560,28 @@ export default function Risks() {
               {errors.owner && <p className="text-xs text-red-500 mt-1">{errors.owner.message}</p>}
             </div>
           </div>
+          {/* Risco Residual */}
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              Risco Residual
+              <span className="ml-1.5 font-normal normal-case text-slate-400">após aplicação de controlos — opcional</span>
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Probabilidade residual (1-5)</label>
+                <input type="number" min={1} max={5} placeholder="—"
+                  {...register('residual_probability')}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Impacto residual (1-5)</label>
+                <input type="number" min={1} max={5} placeholder="—"
+                  {...register('residual_impact')}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
             <button type="submit" className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">

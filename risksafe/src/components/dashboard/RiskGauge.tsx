@@ -1,5 +1,6 @@
 interface RiskGaugeProps {
   score: number
+  residualScore?: number | null
 }
 
 function getLabel(score: number): { label: string; color: string } {
@@ -9,7 +10,7 @@ function getLabel(score: number): { label: string; color: string } {
   return               { label: 'BAIXO',   color: '#22C55E' }
 }
 
-export default function RiskGauge({ score }: RiskGaugeProps) {
+export default function RiskGauge({ score, residualScore }: RiskGaugeProps) {
   const { label, color } = getLabel(score)
   const clamp = Math.min(Math.max(score, 0), 100)
   const angle = -180 + (clamp / 100) * 180
@@ -29,6 +30,13 @@ export default function RiskGauge({ score }: RiskGaugeProps) {
   const needleXFix = cx + (r - 8) * Math.cos(toRad(angle))
   const needleYFix = cy + (r - 8) * Math.sin(toRad(angle))
 
+  // Residual needle (azul, mais curto)
+  const hasResidual = residualScore != null
+  const rClamp = hasResidual ? Math.min(Math.max(residualScore!, 0), 100) : 0
+  const rAngle = -180 + (rClamp / 100) * 180
+  const rNeedleX = cx + (r - 18) * Math.cos(toRad(rAngle))
+  const rNeedleY = cy + (r - 18) * Math.sin(toRad(rAngle))
+
   return (
     <div className="flex flex-col items-center">
       <svg viewBox="0 0 160 90" className="w-44">
@@ -41,15 +49,21 @@ export default function RiskGauge({ score }: RiskGaugeProps) {
         ].map(({ from, to, color: c }) => (
           <path key={from} d={arcPath(from, to)} stroke={c} strokeWidth="12" fill="none" strokeLinecap="butt" />
         ))}
-        <line
-          x1={cx} y1={cy}
-          x2={needleXFix} y2={needleYFix}
-          stroke="#1E2A3B" strokeWidth="3" strokeLinecap="round"
-        />
+        {/* Agulha residual (azul tracejada, mais curta) */}
+        {hasResidual && (
+          <line x1={cx} y1={cy} x2={rNeedleX} y2={rNeedleY}
+            stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="3 2" />
+        )}
+        {/* Agulha inerente */}
+        <line x1={cx} y1={cy} x2={needleXFix} y2={needleYFix}
+          stroke="#1E2A3B" strokeWidth="3" strokeLinecap="round" />
         <circle cx={cx} cy={cy} r="4" fill="#1E2A3B" />
       </svg>
       <p className="text-xl font-bold mt-1" style={{ color }}>{label}</p>
-      <p className="text-xs text-slate-400">Score {score} / 100</p>
+      <p className="text-xs text-slate-400">Inerente {score} / 100</p>
+      {hasResidual && (
+        <p className="text-xs text-blue-500 font-medium">Residual {residualScore} / 100</p>
+      )}
     </div>
   )
 }

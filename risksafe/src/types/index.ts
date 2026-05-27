@@ -15,6 +15,10 @@ export interface Risk {
   status: RiskStatus
   owner: string
   trend: TrendDirection
+  residualProbability?: number | null
+  residualImpact?: number | null
+  residualScore?: number | null
+  residualLevel?: RiskLevel | null
   createdAt: string
   updatedAt: string
   vendorId?: string
@@ -81,6 +85,26 @@ export interface Contract {
   autoRenew: boolean
 }
 
+export type ControlCategory = 'Organizacional' | 'Pessoas' | 'Físico' | 'Tecnológico' | 'Regulamentar'
+export type ControlStatus = 'implemented' | 'partial' | 'planned' | 'not_implemented' | 'not_applicable'
+export type ControlEffectiveness = 'effective' | 'needs_improvement' | 'ineffective' | 'untested'
+
+export interface Control {
+  id: string
+  code: string
+  name: string
+  description?: string
+  category: ControlCategory
+  frameworkRefs?: string
+  status: ControlStatus
+  effectiveness: ControlEffectiveness
+  owner?: string
+  riskIds: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type AssetType = 'software' | 'hardware' | 'network' | 'service'
 export type AssetStatus = 'active' | 'maintenance' | 'decommissioned'
 
@@ -96,6 +120,77 @@ export interface Asset {
   riskIds: string
   description?: string
   createdAt: string
+}
+
+export interface AppSettings {
+  organization: {
+    name: string
+    sector: string
+    nif: string
+    logoUrl: string
+    frameworks: string[]
+    nis2Classification: 'essential' | 'important' | 'none'
+  }
+  riskMatrix: {
+    size: number
+    probabilityLabels: string[]
+    impactLabels: string[]
+    thresholds: { lowMax: number; mediumMax: number; highMax: number }
+    appetite: number
+    tolerance: number
+  }
+  taxonomy: {
+    riskCategories: string[]
+    assetTypes: string[]
+  }
+  profile: {
+    name: string
+    email: string
+    role: string
+  }
+}
+
+export interface Nis2ArticleStat {
+  article: string
+  total: number
+  implemented: number
+  partial: number
+  planned: number
+  notImplemented: number
+  notApplicable: number
+}
+
+export interface Nis2Compliance {
+  score: number
+  total: number
+  implemented: number
+  partial: number
+  planned: number
+  notImplemented: number
+  notApplicable: number
+  byArticle: Nis2ArticleStat[]
+}
+
+export interface Iso27001SectionStat {
+  section: string
+  key: string
+  total: number
+  implemented: number
+  partial: number
+  planned: number
+  notImplemented: number
+  notApplicable: number
+}
+
+export interface Iso27001Compliance {
+  score: number
+  total: number
+  implemented: number
+  partial: number
+  planned: number
+  notImplemented: number
+  notApplicable: number
+  bySection: Iso27001SectionStat[]
 }
 
 export interface DashboardSummary {
@@ -120,4 +215,12 @@ export interface DashboardSummary {
   topCriticalRisks: { id: string; name: string; level: RiskLevel; score: number; trend: TrendDirection }[]
   recentIncidents: Incident[]
   riskMatrix: number[][]
+  residualMatrix: number[][]
+  residualScore: number | null
+  residualCriticalRisks: number
+  residualHighRisks: number
+  residualMediumRisks: number
+  residualLowRisks: number
+  nis2Compliance: Nis2Compliance
+  iso27001Compliance: Iso27001Compliance
 }

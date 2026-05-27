@@ -1,7 +1,7 @@
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import WidgetCard from '../ui/WidgetCard'
 import Badge from '../ui/Badge'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { TrendDirection, RiskLevel } from '../../types'
 
 interface TopRisk {
@@ -19,6 +19,7 @@ const TrendIcon = ({ trend }: { trend: TrendDirection }) => {
 }
 
 export default function TopCriticalRisks({ risks }: { risks: TopRisk[] }) {
+  const navigate = useNavigate()
   return (
     <WidgetCard
       title="Top 5 Riscos Críticos"
@@ -35,8 +36,13 @@ export default function TopCriticalRisks({ risks }: { risks: TopRisk[] }) {
         </thead>
         <tbody className="divide-y divide-slate-50">
           {risks.map(r => (
-            <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-              <td className="py-2 pr-3 text-xs text-slate-700 max-w-[160px] truncate">{r.name}</td>
+            <tr
+              key={r.id}
+              className="hover:bg-blue-50 transition-colors cursor-pointer group"
+              onClick={() => navigate(`/riscos?risk=${r.id}`)}
+              title="Ver risco"
+            >
+              <td className="py-2 pr-3 text-xs text-slate-700 max-w-[160px] truncate group-hover:text-blue-700">{r.name}</td>
               <td className="py-2 pr-3"><Badge level={r.level} /></td>
               <td className="py-2 text-right font-semibold text-slate-800 text-sm">{r.score}</td>
               <td className="py-2 text-right"><TrendIcon trend={r.trend} /></td>

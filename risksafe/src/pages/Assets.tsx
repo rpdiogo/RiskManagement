@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import RiskMultiSelect from '../components/ui/RiskMultiSelect'
+import RiskPill from '../components/ui/RiskPill'
 import { assetsApi } from '../api/assets'
 import { risksApi } from '../api/risks'
 import type { Asset, AssetType, AssetStatus, RiskLevel } from '../types'
@@ -138,8 +139,8 @@ export default function Assets() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+        <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               <th className="w-8 px-2 py-3"></th>
@@ -191,13 +192,12 @@ export default function Assets() {
                     <td className="px-4 py-3 text-slate-600 text-sm">{a.owner}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {linkedRiskIds.length === 0 && <span className="text-slate-300 text-xs">—</span>}
-                        {linkedRiskIds.map(rid => (
-                          <span key={rid} title={riskName(rid)}
-                            className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">{rid}</span>
-                        ))}
-                      </div>
-                    </td>
+                          {linkedRiskIds.length === 0 && <span className="text-slate-300 text-xs">—</span>}
+                          {linkedRiskObjects.map(r => (
+                            <RiskPill key={r.id} risk={r} />
+                          ))}
+                        </div>
+                      </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(a)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Pencil size={15} /></button>

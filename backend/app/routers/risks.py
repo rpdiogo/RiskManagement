@@ -19,6 +19,8 @@ class RiskCreate(BaseModel):
     owner: str
     status: str = "open"
     vendor_id: Optional[str] = None
+    residual_probability: Optional[int] = None
+    residual_impact: Optional[int] = None
 
 
 class RiskUpdate(RiskCreate):
@@ -34,7 +36,14 @@ def list_risks(db: Session = Depends(get_db)):
 def create_risk(body: RiskCreate, db: Session = Depends(get_db)):
     score = body.probability * body.impact
     level = _level(score)
-    risk = Risk(id=str(uuid.uuid4()), score=score, level=level, trend="stable", **body.model_dump())
+    rp, ri = body.residual_probability, body.residual_impact
+    rs = rp * ri if (rp and ri) else None
+    rl = _level(rs) if rs else None
+    risk = Risk(
+        id=str(uuid.uuid4()), score=score, level=level, trend="stable",
+        residual_score=rs, residual_level=rl,
+        **body.model_dump()
+    )
     db.add(risk)
     db.commit()
     db.refresh(risk)
@@ -50,6 +59,9 @@ def update_risk(risk_id: str, body: RiskUpdate, db: Session = Depends(get_db)):
         setattr(risk, k, v)
     risk.score = body.probability * body.impact
     risk.level = _level(risk.score)
+    rp, ri = body.residual_probability, body.residual_impact
+    risk.residual_score = rp * ri if (rp and ri) else None
+    risk.residual_level = _level(risk.residual_score) if risk.residual_score else None
     db.commit()
     db.refresh(risk)
     return risk

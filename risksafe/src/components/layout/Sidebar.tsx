@@ -3,7 +3,7 @@ import {
   LayoutDashboard, AlertTriangle, Server, Zap, Bug, Shield,
   Flame, ClipboardList, BarChart3, PieChart, Settings,
   Building2, ClipboardCheck, FileQuestion, FileText, ChevronDown,
-  ShieldCheck
+  ShieldCheck, BookOpen, Scale, LifeBuoy, ShieldAlert
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -18,6 +18,17 @@ const mainNav = [
   { to: '/planos',          icon: ClipboardList,   label: 'Planos de Ação' },
   { to: '/relatorios',      icon: BarChart3,       label: 'Relatórios' },
   { to: '/dashboard-exec',  icon: PieChart,        label: 'Dashboard Exec.' },
+]
+
+const conformidadeNav = [
+  { to: '/conformidade/nis2',      icon: Scale,    label: 'NIS2' },
+  { to: '/conformidade/iso27001',  icon: BookOpen, label: 'ISO 27001' },
+]
+
+const continuidadeNav = [
+  { to: '/continuidade/bcp', icon: LifeBuoy,    label: 'BCP' },
+  { to: '/continuidade/drp', icon: Server,      label: 'DRP' },
+  { to: '/continuidade/irp', icon: ShieldAlert, label: 'IRP' },
 ]
 
 const tprmNav = [
@@ -47,6 +58,8 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementTyp
 }
 
 export default function Sidebar() {
+  const [conformidadeOpen, setConformidadeOpen] = useState(true)
+  const [continuidadeOpen, setContinuidadeOpen] = useState(true)
   const [tprmOpen, setTprmOpen] = useState(true)
 
   return (
@@ -69,6 +82,28 @@ export default function Sidebar() {
 
         <div className="pt-4">
           <button
+            onClick={() => setConformidadeOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+          >
+            <span>Conformidade</span>
+            <ChevronDown size={14} className={`transition-transform ${conformidadeOpen ? '' : '-rotate-90'}`} />
+          </button>
+          {conformidadeOpen && conformidadeNav.map(item => <NavItem key={item.to} {...item} />)}
+        </div>
+
+        <div className="pt-2">
+          <button
+            onClick={() => setContinuidadeOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+          >
+            <span>Continuidade</span>
+            <ChevronDown size={14} className={`transition-transform ${continuidadeOpen ? '' : '-rotate-90'}`} />
+          </button>
+          {continuidadeOpen && continuidadeNav.map(item => <NavItem key={item.to} {...item} />)}
+        </div>
+
+        <div className="pt-2">
+          <button
             onClick={() => setTprmOpen(o => !o)}
             className="w-full flex items-center justify-between px-3 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
           >
@@ -87,7 +122,7 @@ export default function Sidebar() {
           </div>
           <div>
             <p className="text-white text-xs font-medium">Admin</p>
-            <p className="text-slate-400 text-xs">CISO</p>
+            <p className="text-slate-400 text-xs">ISO</p>
           </div>
         </div>
       </div>

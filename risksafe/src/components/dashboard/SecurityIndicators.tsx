@@ -1,4 +1,4 @@
-import { Flame, Bug, Server, ShieldOff, Target } from 'lucide-react'
+import { Flame, ShieldAlert, Server, ShieldOff, Target } from 'lucide-react'
 import WidgetCard from '../ui/WidgetCard'
 import TrendIndicator from '../ui/TrendIndicator'
 
@@ -15,8 +15,8 @@ interface Props {
 export default function SecurityIndicators({ indicators: i }: Props) {
   const items = [
     { icon: Flame,     label: 'Incidentes no período',  value: i.incidents,           trend: i.incidentsTrend,           unit: '%', inverse: true },
-    { icon: Bug,       label: 'Vulnerabilidades críticas', value: i.criticalVulns,    trend: i.criticalVulnsTrend,       unit: '%', inverse: true },
-    { icon: Server,    label: 'Ativos em risco alto',   value: i.highRiskAssets,      trend: i.highRiskAssetsTrend,      unit: '%', inverse: true },
+    { icon: ShieldAlert, label: 'Riscos Críticos',          value: i.criticalVulns,    trend: i.criticalVulnsTrend,       unit: '%', inverse: true },
+    { icon: Server,    label: 'Riscos Elevados',         value: i.highRiskAssets,      trend: i.highRiskAssetsTrend,      unit: '%', inverse: true },
     { icon: ShieldOff, label: 'Controles Ineficazes',   value: i.ineffectiveControls, trend: i.ineffectiveControlsTrend, unit: '%', inverse: true },
     { icon: Target,    label: 'Taxa de Tratamento',     value: `${i.treatmentRate}%`, trend: i.treatmentRateTrend,       unit: 'p.p.' },
   ]
