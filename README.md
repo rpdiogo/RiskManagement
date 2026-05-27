@@ -67,11 +67,18 @@ cd ..
 
 ### 2. Popular a base de dados (primeira vez)
 
+A base de dados (`backend/risksafe.db`) **não está em git** (é um binário). Os dados
+partilhados da equipa vivem no snapshot versionável `backend/db_snapshot.sql`.
+
+Restaura o **baseline partilhado completo** (36 riscos, 116 controlos, 16 ativos, …):
+
 ```bash
 cd backend
-python seed.py
+python restore_db.py
 cd ..
 ```
+
+> Alternativa só com o baseline mínimo do Excel (14 riscos): `python seed.py`
 
 ### 3. Iniciar a aplicação
 
@@ -126,9 +133,38 @@ Documentação interativa disponível em http://localhost:8000/docs (Swagger UI)
 
 ---
 
-## Dados de Base
+## Dados de Base & Sincronização entre Devs
 
-O ficheiro `backend/seed.py` popula a base de dados com os 14 riscos e 15 planos de ação extraídos de **Matriz Gestao Risco 2026.xlsx**, com scores residuais e mapeamento de categorias ISO 27001 / NIS2 / ESG.
+A `risksafe.db` é local a cada dev e **gitignored** (binário, com locks — não versionável).
+A **fonte de verdade partilhada** é `backend/db_snapshot.sql` — um dump SQL em texto,
+versionável e diffável.
+
+### Fluxo de trabalho
+
+| Ação | Comando | Quando |
+|---|---|---|
+| **Restaurar** baseline | `cd backend && python restore_db.py` | Setup novo · depois de `git pull` se o snapshot mudou |
+| **Atualizar** snapshot | `cd backend && python dump_db.py` | Depois de alterares dados canónicos que a equipa deve ter |
+
+> ⚠️ **Para a aplicação** (Ctrl+C no `npm run dev`) antes de restaurar — senão a BD está bloqueada.
+> O `restore_db.py` guarda automaticamente a tua BD atual num ficheiro `.bak` antes de substituir.
+
+### Convenção da equipa
+
+1. O `db_snapshot.sql` é o **dataset canónico** — todos partem dele.
+2. Quem alterar dados que **todos** devem ter (novos riscos, controlos…) corre `python dump_db.py`, faz commit do `db_snapshot.sql` e avisa a equipa.
+3. Edições locais de teste **não** são commitadas — ficam só na `risksafe.db` local.
+4. Evitar dois devs a atualizarem o snapshot em simultâneo (gera conflito no `.sql`). Coordenar.
+
+### Seeds (baseline de raiz)
+
+| Script | Conteúdo |
+|---|---|
+| `seed.py` | 14 riscos + 15 planos de **Matriz Gestao Risco 2026.xlsx** (scores residuais, categorias ISO/NIS2/ESG) |
+| `seed_nis2.py` | Controlos baseline NIS2 |
+| `seed_iso27001.py` | 93 controlos Anexo A ISO 27001:2022 |
+
+> Os seeds dão o baseline **mínimo**. Para o estado **completo e atual** da equipa, usa `restore_db.py`.
 
 ---
 

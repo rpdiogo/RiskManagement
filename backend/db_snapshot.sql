@@ -1,11 +1,10 @@
 -- ============================================================
--- RiskSafe — Snapshot completo da base de dados
+-- RiskSafe - Snapshot completo da BD (BASELINE PARTILHADO)
 -- Gerado: 2026-05-27
--- Conteudo: dados organizacionais (riscos, controlos, ativos, planos)
--- Sem PII / sem segredos — seguro para versionamento
+-- Fonte de verdade versionavel dos dados. Sem PII / sem segredos.
 --
--- RESTAURAR (do zero):
---   rm risksafe.db && sqlite3 risksafe.db < db_snapshot.sql
+-- Restaurar:  python restore_db.py
+-- Atualizar:  python dump_db.py
 -- ============================================================
 
 BEGIN TRANSACTION;
